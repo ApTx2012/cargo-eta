@@ -5,6 +5,7 @@ mod eta;
 mod event;
 mod model;
 mod render;
+mod shim;
 mod unit_graph;
 
 use std::process::ExitCode;
@@ -18,6 +19,19 @@ use crate::model::TimingModel;
 use crate::render::Renderer;
 
 fn main() -> ExitCode {
+    // If this executable was invoked under the name `cargo`, act as a shim:
+    // log the call and forward to the real cargo. This is how tools that
+    // invoke cargo via PATH (e.g. the Tauri CLI) get intercepted.
+    if shim::invoked_as_cargo() {
+        return match shim::run_shim() {
+            Ok(code) => ExitCode::from(code as u8),
+            Err(e) => {
+                eprintln!("cargo-eta (shim): error: {e:#}");
+                ExitCode::FAILURE
+            }
+        };
+    }
+
     match run() {
         Ok(success) => {
             if success {
